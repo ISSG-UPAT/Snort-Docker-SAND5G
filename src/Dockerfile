@@ -18,6 +18,9 @@ ENV SNORT_ALERTS=/home/snorty/alerts
 # Copy the default custom rules and configuration files into the container
 COPY volumes/scripts /home/snorty/scripts
 
+# Copy the default custom rules and configuration files into the container
+COPY volumes/custom /home/snorty/custom
+
 RUN chmod +x /home/snorty/scripts/entrypoint.sh
 RUN chmod +x /home/snorty/scripts/run_snort.sh
 RUN chmod +x /home/snorty/scripts/run_snort_notify.sh

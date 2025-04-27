@@ -21,7 +21,13 @@ delete:
 push:
 	@docker tag $(DOCKER_IMAGE_NAME) $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG)
 	@docker push $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME)
-	@echo "Docker image $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME) pushed to Docker Hub successfully."
+	@echo "Docker image $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG) pushed to Docker Hub successfully."
+
+push-standalone:
+	@docker tag $(DOCKER_IMAGE_NAME) $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):standalone
+	@docker push $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME)
+	@echo "Docker image $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):stanalone pushed to Docker Hub successfully."
+
 
 # ╔════════════════╗
 # ║ Help Function  ║
