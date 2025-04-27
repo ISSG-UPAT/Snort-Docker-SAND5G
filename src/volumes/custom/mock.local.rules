@@ -1,0 +1,1 @@
+alert ip 10.1.42.20 any -> $HOME_NET any (msg: "IP Alert Incoming From IP: 10.1.42.20";   classtype:tcp-connection; sid:28154103; rev:1; reference:url,https://misp.gsma.com/events/view/19270;)
