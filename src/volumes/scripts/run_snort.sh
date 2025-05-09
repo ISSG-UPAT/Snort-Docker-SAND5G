@@ -16,7 +16,7 @@
 # 7: br-84e1d9e885e1
 # 8: docker0
 
-AUTOMATED_INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | awk 'NR==3')
+AUTOMATED_INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | awk 'NR==1')
 INTERFACE=${INTERFACE:- ${AUTOMATED_INTERFACE}}
 echo "Interface: $INTERFACE"
 
