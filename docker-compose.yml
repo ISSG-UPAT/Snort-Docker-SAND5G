@@ -1,14 +1,13 @@
 services:
   snort3:
-    image: snort-docker-sand5g:latest
+    image: issgupat/snort-docker-sand5g:latest
     hostname: snort3
     network_mode: "host"
     cap_add:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      # - ./volumes/custom:/home/snorty/custom
-      - ./src/volumes/custom:/home/snorty/custom
+      - /path/to/custom:/home/snorty/custom
       - alerts_data:/home/snorty/alerts
       - /etc/localtime:/etc/localtime:ro # Bind mount to sync time
     environment:
@@ -29,4 +28,4 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: .src/volumes/alerts
+      device: /path/to/alerts
