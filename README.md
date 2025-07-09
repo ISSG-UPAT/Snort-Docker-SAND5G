@@ -1,8 +1,6 @@
 # Snort Docker Image
 
-## Description of the Project
-
-This repository is part of the SAND5G project, which aims to enhance security in 5G networks. FileAgent is a tool designed to facilitate the management of Snort rules in a containerized environment.
+## Description of the SAND5G Project
 
 5G -and beyond- networks provide a strong foundation for EU’s digital transformation and are becoming one of the Union’s key assets to compete in the global market.
 
@@ -21,10 +19,6 @@ It is based on the official Snort image and includes additional features and con
 ## How to use
 
 Pull the image from Docker Hub:
-
-```bash
-docker pull issgupat/snort-docker-sand5g:latest
-```
 
 ### Docker compose file :
 
@@ -45,7 +39,7 @@ services:
       - SNORT_ALERTS=/home/snorty/alerts
       # - RULES_FILE=/home/snorty/custom/local.rules
       # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
-      - INTERFACE=wlp0s20f3
+      - INTERFACE=<INTERFACE>
       - TZ=Europe/Athens
 
     privileged: true
