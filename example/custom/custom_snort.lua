@@ -174,8 +174,8 @@ ips =
     --include = 'snort3-community.rules'
     --include = '/home/snorty/custom/local.rules'
     include = {
-        '/home/snorty/custom/local.rules',
-        -- '/home/snorty/custom/local1.rules'
+       -- '/home/snorty/custom/local.rules',
+        '/home/snorty/custom/tls.rules',
     }
 }
 
