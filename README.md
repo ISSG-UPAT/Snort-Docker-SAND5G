@@ -18,7 +18,9 @@ It is based on the official Snort image and includes additional features and con
 
 ## How to use
 
-Pull the image from Docker Hub:
+```bash
+docker compose up
+```
 
 ### Docker compose file :
 
