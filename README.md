@@ -42,6 +42,7 @@ services:
       # - RULES_FILE=/home/snorty/custom/local.rules
       # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
       - INTERFACE=<INTERFACE>
+      - VERBOSE=<level>
       - TZ=Europe/Athens
 
     privileged: true
@@ -68,6 +69,7 @@ volumes:
 | TZ              | YES      | Europe/Athens                        | Used to have accurate timestamps                       |
 | INTERFACE       | YES      | <>                                   | The interface to monitor.                              |
 |                 |          |                                      | Default is the first interface available in the system |
+| VERBOSE         | NO       | 0                                    | The verbosity level of the snort output. ( 0 or 1 )    |
 
 ### Capabilities
 

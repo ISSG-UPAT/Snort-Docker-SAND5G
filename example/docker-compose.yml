@@ -1,6 +1,6 @@
 services:
   snort3:
-    image: snort-docker-sand5g:latest
+    image: snort-local
     hostname: snort3
     network_mode: "host"
     cap_add:
@@ -11,10 +11,11 @@ services:
       - alerts_data:/home/snorty/alerts
       - /etc/localtime:/etc/localtime:ro # Bind mount to sync time
     environment:
-      # - SNORT_ALERTS=/home/snorty/alerts
-      # - RULES_FILE=/home/snorty/custom/local.rules
+      - SNORT_ALERTS=/home/snorty/alerts
+      - RULES_FILE=/home/snorty/custom/tls.rules
       # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
-      - INTERFACE=wlp0s20f3
+      - INTERFACE=enp0s13f0u1u1
+      - VERBOSE=1
       - TZ=Europe/Athens
 
     privileged: true

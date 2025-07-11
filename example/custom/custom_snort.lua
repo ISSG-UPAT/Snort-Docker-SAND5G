@@ -255,7 +255,7 @@ alert_json = {
     file = true,
    -- filename = "/home/snorty/log/alert_json.txt",
     limit = 0,
-    fields = 'timestamp rule action msg'
+    fields = 'timestamp rule action msg dst_ap src_ap target service'
 }
 
 --alert_json.file = true
@@ -288,3 +288,15 @@ end
 -- For example: interface = { "eth0", "eth1" }
 -- interface = { ""}
 
+
+---------------------------------------------------------------------------
+-- 10. configure inline mode  
+---------------------------------------------------------------------------
+
+-- daq = { 
+--     module = 'afpacket',
+--     mode = 'inline',  
+--     -- important: this enables inline packet handling
+--     buffersize = 512,
+--     snaplen = 1518
+-- }

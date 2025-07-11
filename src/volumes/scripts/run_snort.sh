@@ -34,5 +34,11 @@ echo "Current working directory: $(pwd)"
 # Explaining the paramters
 # -q : quiet operatoin, don'w displa
 # -c config-file
+if [ "$VERBOSE" -eq 0 ]; then
+    SNORT_CMD="/home/snorty/snort3/bin/snort -q -c $SNORT_CONF_FILE -i $INTERFACE -A alert_json"
+else
+    SNORT_CMD="/home/snorty/snort3/bin/snort -c $SNORT_CONF_FILE -i $INTERFACE -A alert_json"
+fi
 
-/home/snorty/snort3/bin/snort -q -c $SNORT_CONF_FILE -i $INTERFACE -A alert_json
+echo "Running Snort with command: $SNORT_CMD"
+$SNORT_CMD

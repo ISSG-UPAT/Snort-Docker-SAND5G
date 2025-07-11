@@ -1,6 +1,9 @@
 services:
   snort3:
-    image: issgupat/snort-docker-sand5g:latest
+    # image: issgupat/snort-docker-sand5g:latest
+    build:
+      context: ./src
+      dockerfile: Dockerfile
     hostname: snort3
     network_mode: "host"
     cap_add:
@@ -15,6 +18,7 @@ services:
       # - RULES_FILE=/home/snorty/custom/local.rules
       # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
       - INTERFACE=<INTERFACE>
+      - VERBOSE=<level>
       - TZ=Europe/Athens
 
     privileged: true
