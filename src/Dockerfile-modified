@@ -1,0 +1,16 @@
+ARG BASE_IMAGE=snort-docker-sand5g
+FROM ${BASE_IMAGE}:latest
+
+USER root
+
+# The modified version is when you want to change the scripts 
+COPY volumes/scripts /home/snorty/scripts
+
+RUN chmod +x /home/snorty/scripts/entrypoint.sh \
+    && chmod +x /home/snorty/scripts/run_snort.sh \
+    && chmod +x /home/snorty/scripts/run_snort_notify.sh
+
+USER snorty
+WORKDIR /home/snorty
+
+ENTRYPOINT ["/home/snorty/scripts/entrypoint.sh"]

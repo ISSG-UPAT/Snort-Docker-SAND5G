@@ -1,0 +1,30 @@
+#action_alert
+# #ip_alert
+# alert ip any any -> <IP> any (msg:"[ALERT] IP access to <IP>"; classtype:trojan-activity; sid:10006; rev:1; priority:1;)
+#icmp_alert
+alert icmp any any -> 10.1.6.137 any (msg:"[ALERT] ICMP to <IP>";  sid:10007; rev:1; priority:1;)
+# #http_alert
+# alert http any any -> any any (msg:"[ALERT] Access to domain writerartist.com"; content:"|77 72 69 74 65 72 61 72 74 69 73 74 2e 63 6f 6d|"; http_host; sid:10009; rev:1;)
+# #ssl_alert
+# alert ssl any any -> any 443 (msg:"[ALERT] TLS Client Hello with SNI zhaolearning.com"; ssl_state:client_hello; content:"|7a 68 61 6f 6c 65 61 72 6e 69 6e 67 2e 63 6f 6d|"; sid:100010; rev:1;)
+
+#action_drop
+#ip_drop
+# drop ip any any -> <IP> any (msg:"[DROP] IP access to <IP>"; classtype:trojan-activity; sid:100011; rev:1; priority:1;)
+#icmp_drop
+drop icmp any any -> 10.1.6.201 any (msg:"[DROP] ICMP to <IP>";  sid:100014; rev:1; priority:1;)
+# #http_drop
+# drop http any any -> any any (msg:"[DROP] Access to domain upchemicals.co.in"; content:"|75 70 63 68 65 6d 69 63 61 6c 73 2e 63 6f 2e 69 6e|"; http_host; sid:100013; rev:1;)
+# #ssl_drop
+# drop ssl any any -> any 443 (msg:"[DROP] TLS Client Hello with SNI book.rollingvideogames.com"; ssl_state:client_hello; content:"|62 6f 6f 6b 2e 72 6f 6c 6c 69 6e 67 76 69 64 65 6f 67 61 6d 65 73 2e 63 6f 6d|"; sid:100014; rev:1;)
+
+#action_block
+#ip_block
+block icmp any any -> 10.1.6.207 any (msg:"[Block] ICMP to <IP>";  sid:100012; rev:1; priority:1;)
+# block ip any any -> <IP> any (msg:"[BLOCK] IP access to <IP>"; classtype:trojan-activity; sid:100015; rev:1; priority:1;)
+# #icmp_block
+# block icmp any any -> <IP> any (msg:"[BLOCK] ICMP to <IP>"; classtype:trojan-activity; sid:100016; rev:1; priority:1;)
+# #http_block
+# block http any any -> any any (msg:"[BLOCK] Access to domain redlk.com"; content:"| 72 65 64 6c 6b 2e 63 6f 6d|"; http_host; sid:100017; rev:1;)
+# #ssl_bloque
+# block ssl any any -> any 443 (msg:"[BLOCK] TLS Client Hello with SNI windomstatetheater.com"; ssl_state:client_hello; content:"|77 69 6e 64 6f 6d 73 74 61 74 65 74 68 65 61 74 65 72 2e 63 6f 6d|"; sid:100018; rev:1;)

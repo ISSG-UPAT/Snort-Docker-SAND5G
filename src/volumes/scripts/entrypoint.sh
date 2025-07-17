@@ -22,8 +22,10 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Log the startup of the Snort container
-echo "[INFO] Snort container starting..."
+
+# --- Startup ---
+echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Snort container starting..."
+
 
 # Optional: wait for Docker to mount volumes (adjust the sleep duration or remove if unnecessary)
 sleep 1
@@ -31,9 +33,8 @@ sleep 1
 # Check if the custom script /home/snorty/scripts/run_snort.sh exists and is executable
 if [ -x /home/snorty/scripts/entrypoint.sh ]; then
     # Log that the custom entrypoint script is being executed
-    echo "[INFO] Executing custom entrypoint script..."
+    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Executing custom entrypoint script"
     # Execute the custom script
-    # /home/snorty/scripts/run_snort.sh
     /home/snorty/scripts/run_snort_notify.sh
 else
     # Log a warning if the custom script is not found or not executable

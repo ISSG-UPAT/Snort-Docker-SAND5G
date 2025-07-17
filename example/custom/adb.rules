@@ -1,0 +1,3 @@
+alert icmp any any -> 10.1.6.137 any (msg:"[ALERT] ICMP to <IP>";  sid:10007; rev:1; priority:1;)
+drop icmp any any -> 10.1.6.201 any (msg:"[DROP] ICMP to <IP>";  sid:100014; rev:1; priority:1;)
+block icmp any any -> 10.1.6.207 any (msg:"[Block] ICMP to <IP>";  sid:100012; rev:1; priority:1;)
