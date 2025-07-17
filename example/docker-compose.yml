@@ -1,22 +1,25 @@
 services:
   snort3:
-    image: snort-docker-sand5g:latest
+    # image: issgupat/snort-docker-sand5g:latest
+    # image: snort-docker-sand5g:latest
+    image: snort-docker-sand5g-modified:latest
     hostname: snort3
     network_mode: "host"
     cap_add:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      - ./custom:/home/snorty/custom
+      - custom_data:/home/snorty/custom
       - alerts_data:/home/snorty/alerts
-      - /etc/localtime:/etc/localtime:ro # Bind mount to sync time
+      - /etc/localtime:/etc/localtime:ro
     environment:
-      # - SNORT_ALERTS=/home/snorty/alerts
-      # - RULES_FILE=/home/snorty/custom/local.rules
-      # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
-      - INTERFACE=wlp0s20f3
       - TZ=Europe/Athens
-
+      - RULES_FILE=/home/snorty/custom/adb.rules
+      - INTERFACE=ens3
+      - VERBOSE=1
+      - SNORT_ALERT_MODE=alert_json
+      - SNORT_DAQ_MODE=nfq
+      - INTERFACE=ens3
     privileged: true
     stdin_open: true
     tty: true
@@ -28,4 +31,11 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ./alerts
+      device: ./volumes/alerts
+
+  custom_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/custom

@@ -27,11 +27,7 @@ HOME_NET = 'any'
 -- (leave as "any" in most situations)
 EXTERNAL_NET = 'any'
 
--- include '../../defaults/snort_defaults.lua'
 include '/home/snorty/snort3/etc/snort/snort_defaults.lua'
-include '/home/snorty/snort3/etc/snort/file_magic.lua'
-
-
 
 ---------------------------------------------------------------------------
 -- 2. configure inspection
@@ -55,12 +51,9 @@ stream_file = { }
 
 arp_spoof = { }
 back_orifice = { }
-dnp3 = { }
 dns = { }
-http_inspect = { }
-http2_inspect = { }
 imap = { }
-modbus = { }
+netflow = {}
 normalizer = { }
 pop = { }
 rpc_decode = { }
@@ -68,6 +61,13 @@ sip = { }
 ssh = { }
 ssl = { }
 telnet = { }
+
+cip = { }
+dnp3 = { }
+iec104 = { }
+mms = { }
+modbus = { }
+s7commplus = { }
 
 dce_smb = { }
 dce_tcp = { }
@@ -84,8 +84,14 @@ ftp_server = default_ftp_server
 ftp_client = { }
 ftp_data = { }
 
--- see file_magic.lua for file id rules
-file_id = { file_rules = file_magic }
+http_inspect = { }
+http2_inspect = { }
+
+-- see file_magic.rules for file id rules
+file_id = { rules_file = '/home/snorty/snort3/etc/snort/file_magic.rules' }
+file_policy = { }
+
+js_norm = default_js_norm
 
 -- the following require additional configuration to be fully effective:
 
@@ -99,6 +105,8 @@ appid =
 reputation =
 {
     -- configure one or both of these, then uncomment reputation
+    -- (see also related path vars at the top of snort_defaults.lua)
+
     --blacklist = 'blacklist file name with ip lists'
     --whitelist = 'whitelist file name with ip lists'
 }
@@ -117,15 +125,20 @@ binder =
     { when = { proto = 'tcp', ports = '53', role='server' },  use = { type = 'dns' } },
     { when = { proto = 'tcp', ports = '111', role='server' }, use = { type = 'rpc_decode' } },
     { when = { proto = 'tcp', ports = '502', role='server' }, use = { type = 'modbus' } },
-    { when = { proto = 'tcp', ports = '2123 2152 3386', role='server' }, use = { type = 'gtp' } },
+    { when = { proto = 'tcp', ports = '2123 2152 3386', role='server' }, use = { type = 'gtp_inspect' } },
+    { when = { proto = 'tcp', ports = '2404', role='server' }, use = { type = 'iec104' } },
+    { when = { proto = 'udp', ports = '2222', role = 'server' }, use = { type = 'cip' } },
+    { when = { proto = 'tcp', ports = '44818', role = 'server' }, use = { type = 'cip' } },
 
-    { when = { proto = 'tcp', service = 'dcerpc' }, use = { type = 'dce_tcp' } },
-    { when = { proto = 'udp', service = 'dcerpc' }, use = { type = 'dce_udp' } },
+    { when = { proto = 'tcp', service = 'dcerpc' },  use = { type = 'dce_tcp' } },
+    { when = { proto = 'udp', service = 'dcerpc' },  use = { type = 'dce_udp' } },
+    { when = { proto = 'udp', service = 'netflow' }, use = { type = 'netflow' } },
 
     { when = { service = 'netbios-ssn' },      use = { type = 'dce_smb' } },
     { when = { service = 'dce_http_server' },  use = { type = 'dce_http_server' } },
     { when = { service = 'dce_http_proxy' },   use = { type = 'dce_http_proxy' } },
 
+    { when = { service = 'cip' },              use = { type = 'cip' } },
     { when = { service = 'dnp3' },             use = { type = 'dnp3' } },
     { when = { service = 'dns' },              use = { type = 'dns' } },
     { when = { service = 'ftp' },              use = { type = 'ftp_server' } },
@@ -134,6 +147,8 @@ binder =
     { when = { service = 'imap' },             use = { type = 'imap' } },
     { when = { service = 'http' },             use = { type = 'http_inspect' } },
     { when = { service = 'http2' },            use = { type = 'http2_inspect' } },
+    { when = { service = 'iec104' },           use = { type = 'iec104' } },
+    { when = { service = 'mms' },              use = { type = 'mms' } },
     { when = { service = 'modbus' },           use = { type = 'modbus' } },
     { when = { service = 'pop3' },             use = { type = 'pop' } },
     { when = { service = 'ssh' },              use = { type = 'ssh' } },
@@ -141,6 +156,7 @@ binder =
     { when = { service = 'smtp' },             use = { type = 'smtp' } },
     { when = { service = 'ssl' },              use = { type = 'ssl' } },
     { when = { service = 'sunrpc' },           use = { type = 'rpc_decode' } },
+    { when = { service = 's7commplus' },       use = { type = 's7commplus' } },
     { when = { service = 'telnet' },           use = { type = 'telnet' } },
 
     { use = { type = 'wizard' } }
@@ -171,18 +187,17 @@ ips =
 
     -- use include for rules files; be sure to set your path
     -- note that rules files can include other rules files
-    --include = 'snort3-community.rules'
-    --include = '/home/snorty/custom/local.rules'
-    include = {
-       -- '/home/snorty/custom/local.rules',
-        '/home/snorty/custom/tls.rules',
-    }
+    -- (see also related path vars at the top of snort_defaults.lua)
+
+    variables = default_variables
 }
 
 -- use these to configure additional rule actions
 -- react = { }
 -- reject = { }
--- rewrite = { }
+
+-- use this to enable payload injection utility
+-- payload_injector = { }
 
 ---------------------------------------------------------------------------
 -- 6. configure filters
@@ -197,7 +212,10 @@ suppress =
     -- don't want to any of see these
     { gid = 1, sid = 1 },
 
-    -- don't want to see these for a given server
+    -- don't want to see anything for a given host
+    { track = 'by_dst', ip = '1.2.3.4' }
+
+    -- don't want to see these for a given host
     { gid = 1, sid = 2, track = 'by_dst', ip = '1.2.3.4' },
 }
 --]]
@@ -228,39 +246,22 @@ rate_filter =
 -- 7. configure outputs
 ---------------------------------------------------------------------------
 
+-- It creates the json in the same folder that the command is 
+alert_json = {						      
+    file = true,					      
+    limit = 0,						      
+    fields = 'timestamp rule action msg dst_ap src_ap target'
+}
+
 -- event logging
 -- you can enable with defaults from the command line with -A <alert_type>
 -- uncomment below to set non-default configs
--- alert_csv = { }
--- alert_fast = { }
--- alert_fast = {file=true, filename='/home/snorty/alerts/alert.log'}
+--alert_csv = { }
+--alert_fast = { }
 --alert_full = { }
 --alert_sfsocket = { }
 --alert_syslog = { }
 --unified2 = { }
-
---output = {
-  --  alert_json = {
-    --    file = true,
-      --  filename = '/home/snorty/log/alert.json',
-        --fields = {'timestamp', 'rule', 'action'},
-        --limit = 0,
-        --separator = ','
---}}
-
--- alert_json = {} 
-
--- It creates the json in the same folder that the command is ran 
-alert_json = {
-    file = true,
-   -- filename = "/home/snorty/log/alert_json.txt",
-    limit = 0,
-    fields = 'timestamp rule action msg'
-}
-
---alert_json.file = true
---alert_json.fields = {'timestamp', 'rule', 'action'}
--- alert_json.filename = '/home/snorty/alerts/alert.json'
 
 -- packet logging
 -- you can enable with defaults from the command line with -L <log_type>
@@ -272,13 +273,8 @@ alert_json = {
 --packet_capture = { }
 --file_log = { }
 
----------------------------------------------------------------------------
--- 8. configure tweaks
----------------------------------------------------------------------------
 
-if ( tweaks ~= nil ) then
-    include(tweaks .. '.lua')
-end
+
 
 ---------------------------------------------------------------------------
 -- 9. configure interfaces 
@@ -288,3 +284,48 @@ end
 -- For example: interface = { "eth0", "eth1" }
 -- interface = { ""}
 
+
+---------------------------------------------------------------------------
+-- 10. configure inline mode  
+---------------------------------------------------------------------------
+
+-- daq = {
+--     -- where libdaq lives (matches your build/install)
+--     module_dirs = { '/usr/local/lib/daq' },
+
+--     -- build the stack of DAQ modules (base first, wrappers after)
+--     -- modules = {
+--     --     {
+--     --         name      = 'afpacket',    -- use AF_PACKET
+--     --         mode      = 'inline',      -- inline (same as --daq-mode inline or -Q)
+--     --         variables = {              -- equivalent to --daq-var debug
+--     --             'debug'
+--     --         }
+--     --     }
+--     -- },
+    -- modules = {
+    --     {
+    --         name      = 'nfq',                -- use NFQ instead of afpacket
+    --         variables = {
+    --             'queue=0',                   -- must match your --queue-num 0 iptables rule
+    --             'bufsz=65535',               -- bump buffer size if needed
+    --             'debug'                      -- optional
+    --         }
+    --     }
+    -- }
+
+--     -- which interface(s) to open (same as -i ens3)
+--     -- inputs = { 'ens3' },
+
+--     -- packet snaplen (default 1518; override if you need to)
+--     -- snaplen = 1518
+-- }
+
+
+---------------------------------------------------------------------------
+-- LAST. configure tweaks
+---------------------------------------------------------------------------
+
+if ( tweaks ~= nil ) then
+    include(tweaks .. '.lua')
+end

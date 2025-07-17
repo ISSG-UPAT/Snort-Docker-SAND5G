@@ -7,16 +7,17 @@ services:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      - /path/to/custom:/home/snorty/custom
+      - custom_data:/home/snorty/custom
       - alerts_data:/home/snorty/alerts
-      - /etc/localtime:/etc/localtime:ro # Bind mount to sync time
+      - /etc/localtime:/etc/localtime:ro
     environment:
-      - SNORT_ALERTS=/home/snorty/alerts
-      # - RULES_FILE=/home/snorty/custom/local.rules
-      # - SNORT_CONF_FILE=/home/snorty/custom/custom_snort.lua
-      - INTERFACE=<INTERFACE>
       - TZ=Europe/Athens
-
+      - RULES_FILE=/home/snorty/custom/<FILE.RULES>
+      - INTERFACE=<INTERFACE>
+      - VERBOSE=<0|1>
+      - SNORT_ALERT_MODE=<ALERT_MODE>
+      - SNORT_DAQ_MODE=<nfq|pcap>
+      - INTERFACE=<INTERFACE>
     privileged: true
     stdin_open: true
     tty: true
@@ -29,3 +30,10 @@ volumes:
       type: none
       o: bind
       device: /path/to/alerts
+
+  custom_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /path/to/custom
