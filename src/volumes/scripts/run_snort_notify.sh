@@ -13,7 +13,7 @@ bash "$SNORT_SCRIPT" &
 
 # Monitor the local.rules file for changes
 echo "Monitoring $RULES_FILE for changes..."
-while inotifywait -e modify "$RULES_FILE"; do
+while inotifywait -e close_write "$RULES_FILE"; do
     echo "Change detected in $RULES_FILE. Running $SNORT_SCRIPT..."
     
     # Kill any existing instance of the SNORT_SCRIPT
