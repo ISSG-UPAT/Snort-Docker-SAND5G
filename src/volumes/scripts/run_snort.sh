@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Exit immediately if a command exits with a non-zero status
+set -e
+
 
 # Get all the interfaces
 
@@ -36,6 +39,8 @@ echo "Current working directory: $(pwd)"
 
 SNORT_CMD="$SNORT_BIN/bin/snort"
 
+VERBOSE=${VERBOSE:-0}
+SNORT_DAQ_DEBUG=${SNORT_DAQ_DEBUG:-0}
 
 if [ "$VERBOSE" -eq 0 ]; then
     SNORT_CMD+=" -q "
@@ -88,7 +93,6 @@ else
     # Set the interface to listen on
     SNORT_CMD+=" -i $INTERFACE "
 fi
-
 
 
 echo "Running Snort with command: $SNORT_CMD"
