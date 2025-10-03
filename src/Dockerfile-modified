@@ -1,9 +1,8 @@
-ARG BASE_IMAGE=snort-docker-sand5g
-FROM ${BASE_IMAGE}:latest
+FROM snort-from-scratch:latest
 
 USER root
+RUN apt-get install -y iptables
 
-# The modified version is when you want to change the scripts 
 COPY volumes/scripts /home/snorty/scripts
 
 RUN chmod +x /home/snorty/scripts/entrypoint.sh \
