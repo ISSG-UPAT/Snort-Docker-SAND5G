@@ -28,6 +28,8 @@ echo "Interface: $INTERFACE"
 # Set the path to the Snort binary
 SNORT_BIN=${SNORT_BIN:-"/home/snorty/snort3"}
 
+# Set the queue number for NFQUEUE DAQ mode
+QUEUE=${QUEUE:-0}
 
 # Go inside the snort alerts directory in order to save the alerts with ease
 cd $SNORT_ALERTS
@@ -77,7 +79,7 @@ if [ "$SNORT_DAQ_MODE" = "nfq" ] || [ "$SNORT_DAQ_MODE" = "afpacket" ]; then
     
     if [ "$SNORT_DAQ_MODE" = "nfq" ]; then
         SNORT_CMD+=" --daq nfq "
-        SNORT_CMD+=" --daq-var queue=0 --daq-var bufsz=65535"
+        SNORT_CMD+=" --daq-var queue=$QUEUE --daq-var bufsz=65535"
         elif [ "$SNORT_DAQ_MODE" = "afpacket" ]; then
         SNORT_CMD+=" --daq afpacket "
         SNORT_CMD+=" -i $INTERFACE"
