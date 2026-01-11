@@ -1,4 +1,5 @@
-FROM snort-from-scratch:latest
+ARG BASE_IMAGE=snort-docker-sand5g:latest
+FROM ${BASE_IMAGE}
 
 USER root
 RUN apt-get install -y iptables
