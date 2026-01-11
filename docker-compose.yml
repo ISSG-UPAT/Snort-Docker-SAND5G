@@ -1,6 +1,7 @@
 services:
   snort3:
     image: issgupat/snort-docker-sand5g:latest
+    # image: snort-docker-sand5g-modified:latest
     hostname: snort3
     network_mode: "host"
     cap_add:
@@ -13,7 +14,6 @@ services:
     environment:
       - TZ=Europe/Athens
       - RULES_FILE=/home/snorty/custom/<FILE.RULES>
-      - INTERFACE=<INTERFACE>
       - VERBOSE=<0|1>
       - SNORT_ALERT_MODE=<ALERT_MODE>
       - SNORT_DAQ_MODE=<nfq|pcap>
