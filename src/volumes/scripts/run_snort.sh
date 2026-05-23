@@ -3,99 +3,57 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-
-# Get all the interfaces
-
-# ip -o link show | awk -F': ' '{print $2}'
-
-# Set the interface to the second one
-
-# This is for ease of testing
-# 1: lo
-# 2: enp0s31f6
-# 3: wlp0s20f3
-# 4: virbr0
-# 6: br-4d4298b37011
-# 7: br-84e1d9e885e1
-# 8: docker0
-
-AUTOMATED_INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | awk 'NR==1')
-INTERFACE=${INTERFACE:- ${AUTOMATED_INTERFACE}}
-echo "Interface: $INTERFACE"
-
-# Get the interface from the environmental variable or from the automated interface
-
-# Set the path to the Snort binary
-SNORT_BIN=${SNORT_BIN:-"/home/snorty/snort3"}
-
-# Set the queue number for NFQUEUE DAQ mode
-QUEUE=${QUEUE:-0}
-
-# Go inside the snort alerts directory in order to save the alerts with ease
-cd $SNORT_ALERTS
-# for logging print the current working directory
-echo "Current working directory: $(pwd)"
-
-# Start Snort with the specified configuration and rules
-
-
-SNORT_CMD="$SNORT_BIN/bin/snort"
-
-VERBOSE=${VERBOSE:-0}
-SNORT_DAQ_DEBUG=${SNORT_DAQ_DEBUG:-0}
-
-if [ "$VERBOSE" -eq 0 ]; then
-    SNORT_CMD+=" -q "
-fi
-
-if [ -n "$RULES_FILE" ]; then
-    SNORT_CMD+=" -R $RULES_FILE "
+# ── IDS_* contract (backward-compatible fallbacks for old var names) ──────────
+IDS_MODE="${IDS_MODE:-}"
+IDS_QUEUE="${IDS_QUEUE:-${QUEUE:-0}}"
+# Rules file: explicit override > selected IDS mode > old RULES_FILE fallback.
+# Base images set RULES_FILE=local.rules, which must not override IDS_MODE from Compose.
+if [ -n "${IDS_RULES_FILE:-}" ]; then
+    : # already set
+elif [ -n "$IDS_MODE" ] && [ "$IDS_MODE" != "custom" ]; then
+    IDS_RULES_FILE="/home/snorty/custom/${IDS_MODE}.rules"
+elif [ -n "${RULES_FILE:-}" ]; then
+    IDS_RULES_FILE="$RULES_FILE"
 else
-    echo "No rules file specified, using default rules."
+    IDS_RULES_FILE=""
 fi
+IDS_CONF_FILE="${IDS_CONF_FILE:-${SNORT_CONF_FILE:-/home/snorty/custom/custom_snort.lua}}"
+IDS_VERBOSE="${IDS_VERBOSE:-${VERBOSE:-0}}"
+IDS_DAQ_MODE="${IDS_DAQ_MODE:-${SNORT_DAQ_MODE:-nfq}}"
+IDS_ALERT_MODE="${IDS_ALERT_MODE:-${SNORT_ALERT_MODE:-alert_json}}"
+IDS_DAQ_DEBUG="${IDS_DAQ_DEBUG:-${SNORT_DAQ_DEBUG:-0}}"
 
-# Set the Snort configuration file
-if [ -n "$SNORT_CONF_FILE" ]; then
-    SNORT_CMD+=" -c $SNORT_CONF_FILE "
-else
-    echo "No configuration file specified, using default configuration."
-    SNORT_CONF_FILE="/home/snorty/custom/custom_snort.lua"
-fi
+SNORT_BIN="${SNORT_BIN:-/home/snorty/snort3}"
 
+cd "${SNORT_ALERTS:-/home/snorty/alerts}"
+echo "[INFO] Working directory: $(pwd)"
+echo "[INFO] IDS_MODE=$IDS_MODE  rules=$IDS_RULES_FILE  daq=$IDS_DAQ_MODE  queue=$IDS_QUEUE"
 
-# Set the alert mode
+SNORT_CMD="${SNORT_BIN}/bin/snort"
 
-if [ -n "$SNORT_ALERT_MODE" ]; then
-    SNORT_CMD+=" -A $SNORT_ALERT_MODE "
-else
-    echo "No alert mode specified, using default alert mode."
-    SNORT_ALERT_MODE="console"
-fi
+[ "$IDS_VERBOSE" -eq 0 ] && SNORT_CMD="$SNORT_CMD -q"
 
-# --daq-dir /usr/local/lib/daq --daq afpacket --daq-var debug
-if [ "$SNORT_DAQ_MODE" = "nfq" ] || [ "$SNORT_DAQ_MODE" = "afpacket" ]; then
-    SNORT_CMD+=" --daq-dir /usr/local/lib/daq"
-    
-    
-    if [ "$SNORT_DAQ_MODE" = "nfq" ]; then
-        SNORT_CMD+=" --daq nfq "
-        SNORT_CMD+=" --daq-var queue=$QUEUE --daq-var bufsz=65535"
-        elif [ "$SNORT_DAQ_MODE" = "afpacket" ]; then
-        SNORT_CMD+=" --daq afpacket "
-        SNORT_CMD+=" -i $INTERFACE"
-    fi
-    
-    if [ "$SNORT_DAQ_DEBUG" -eq 1 ]; then
-        SNORT_CMD+=" --daq-var debug "
-    fi
-    
-    SNORT_CMD+=" -Q"
-else
-    echo "Snort running in passive mode"
-    # Set the interface to listen on
-    SNORT_CMD+=" -i $INTERFACE "
-fi
+[ -n "$IDS_RULES_FILE" ] && SNORT_CMD="$SNORT_CMD -R $IDS_RULES_FILE"
+[ -n "$IDS_CONF_FILE"  ] && SNORT_CMD="$SNORT_CMD -c $IDS_CONF_FILE"
+[ -n "$IDS_ALERT_MODE" ] && SNORT_CMD="$SNORT_CMD -A $IDS_ALERT_MODE"
 
+case "$IDS_DAQ_MODE" in
+nfq)
+    SNORT_CMD="$SNORT_CMD --daq-dir /usr/local/lib/daq --daq nfq"
+    SNORT_CMD="$SNORT_CMD --daq-var queue=$IDS_QUEUE --daq-var bufsz=65535"
+    [ "$IDS_DAQ_DEBUG" -eq 1 ] && SNORT_CMD="$SNORT_CMD --daq-var debug"
+    SNORT_CMD="$SNORT_CMD -Q"
+    ;;
+afpacket)
+    INTERFACE="${INTERFACE:-$(ip -o link show | awk -F': ' 'NR==1{print $2}')}"
+    SNORT_CMD="$SNORT_CMD --daq-dir /usr/local/lib/daq --daq afpacket -i $INTERFACE -Q"
+    ;;
+*)
+    INTERFACE="${INTERFACE:-$(ip -o link show | awk -F': ' 'NR==1{print $2}')}"
+    echo "[INFO] Passive mode on interface $INTERFACE"
+    SNORT_CMD="$SNORT_CMD -i $INTERFACE"
+    ;;
+esac
 
-echo "Running Snort with command: $SNORT_CMD"
+echo "[INFO] Running: $SNORT_CMD"
 $SNORT_CMD

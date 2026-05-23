@@ -3,6 +3,8 @@ services:
     image: issgupat/snort-docker-sand5g:latest
     # image: snort-docker-sand5g-modified:latest
     hostname: snort3
+    extra_hosts:
+        - "snort3:127.0.0.1"
     network_mode: "host"
     cap_add:
       - NET_ADMIN
@@ -13,11 +15,39 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       - TZ=Europe/Athens
-      - RULES_FILE=/home/snorty/custom/<FILE.RULES>
-      - VERBOSE=<0|1>
-      - SNORT_ALERT_MODE=<ALERT_MODE>
-      - SNORT_DAQ_MODE=<nfq|pcap>
-      - INTERFACE=<INTERFACE>
+      # ── IDS_MODE: which interface/ruleset to activate ────────────────────
+      # n2     — NGAP/SCTP port 38412  (N2: AMF ↔ gNB)
+      # n3     — GTP-U/UDP port 2152   (N3: gNB ↔ UPF) + ogstun FORWARD
+      # n4     — PFCP/UDP port 8805    (N4: SMF ↔ UPF)
+      # sbi    — HTTP-2/TCP port 7777  (SBI: inter-NF API)
+      # custom — set RULE_IN / RULE_OUT for arbitrary iptables rules
+      # (empty/unset) — same as custom; requires RULE_IN / RULE_OUT
+      - IDS_MODE=${IDS_MODE:-n2}
+      # Custom mode example (leave IDS_MODE empty or set to "custom"):
+      # - RULE_IN=-i ens3 -p tcp --dport 9999 -j NFQUEUE --queue-num 0 --queue-bypass
+      # - RULE_OUT=-o ens3 -p tcp --sport 9999 -j NFQUEUE --queue-num 0 --queue-bypass
+      # - CHAIN_IN=INPUT
+      # - CHAIN_OUT=OUTPUT
+      # - IDS_RULES_FILE=/home/snorty/custom/my_custom.rules
+      - IDS_QUEUE=${IDS_QUEUE:-0}
+      # IDS_RULES_FILE defaults to /home/snorty/custom/${IDS_MODE}.rules
+      # Override here to use a custom path:
+      # - IDS_RULES_FILE=/home/snorty/custom/my_custom.rules
+      - IDS_CONF_FILE=${IDS_CONF_FILE:-/home/snorty/custom/custom_snort.lua}
+      - IDS_VERBOSE=${IDS_VERBOSE:-1}
+      - IDS_DAQ_MODE=${IDS_DAQ_MODE:-nfq}
+      - IDS_ALERT_MODE=${IDS_ALERT_MODE:-alert_json}
+      # ── Per-interface knobs (entrypoint uses the set matching IDS_MODE) ──
+      - N2_IF=${N2_IF:-lo}
+      - N2_PORT=${N2_PORT:-38412}
+      - N3_IF=${N3_IF:-ens3}
+      - N3_PORT=${N3_PORT:-2152}
+      - TUN_IF=${TUN_IF:-ogstun}
+      - N4_IF=${N4_IF:-lo}
+      - N4_PORT=${N4_PORT:-8805}
+      - SBI_IF=${SBI_IF:-lo}
+      - SBI_PORT=${SBI_PORT:-7777}
+
     privileged: true
     stdin_open: true
     tty: true

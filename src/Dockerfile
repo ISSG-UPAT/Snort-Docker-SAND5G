@@ -57,8 +57,6 @@ RUN apt-get update && \
     zlib1g-dev 
 
 
-
-
 # Create the snorty user and its home directory
 RUN useradd -m -s /bin/bash snorty
 # Set a default password for the snorty user
@@ -98,7 +96,7 @@ RUN cd pcre2-${LIBPCRE2_VERSION} && \
 # # Install PCRE2 shared library
 # RUN ldconfig /usr/lib/x86_64-linux-gnu
 # # Proposed by the PCRE2 documentation
-ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
 RUN ldconfig
 
 # =======================================================

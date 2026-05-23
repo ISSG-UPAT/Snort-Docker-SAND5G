@@ -1,0 +1,107 @@
+# SAND5G N2 rules — Snort 3
+#
+# Monitoring point: N2 interface (AMF ↔ gNB)
+#   Protocol: NGAP / SCTP / port 38412  (3GPP TS 38.412)
+#
+# Interface defaults (set via env):
+#   lo    — single-VM: Open5GS NFs bind 127.0.0.x, UERANSIM on same host
+#   cni0  — k3s flannel pod networking (N2_IF=cni0)
+#
+# Snort 3 SCTP notes:
+#   - `alert sctp` + `sctp_chunk_type` are functional.
+#   - No stream_sctp inspector → stateless, per-packet only.
+#   - Do NOT use `flow:` keyword with SCTP rules.
+#   - `ip_proto:132` fallback for builds without SCTP port match.
+
+
+# ── Section 1: SCTP chunk-level anomalies ────────────────────────────────────
+
+# INIT storm — AMF association flood
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-001 SCTP INIT flood to AMF — N2 association storm";
+    sctp_chunk_type:INIT;
+    detection_filter: track by_src, count 30, seconds 1;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000001; rev:2;)
+
+# COOKIE-ECHO storm — handshake replay / amplification
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-002 SCTP COOKIE-ECHO storm — 3WHS abuse";
+    sctp_chunk_type:COOKIE_ECHO;
+    detection_filter: track by_src, count 60, seconds 2;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000002; rev:2;)
+
+# ABORT flood — forced teardown of live NGAP associations
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-003 SCTP ABORT flood — forced N2 teardown";
+    sctp_chunk_type:ABORT;
+    detection_filter: track by_src, count 10, seconds 2;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000003; rev:2;)
+
+# HEARTBEAT flood — keepalive abuse / state exhaustion
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-004 SCTP HEARTBEAT flood to AMF";
+    sctp_chunk_type:HEARTBEAT;
+    detection_filter: track by_src, count 50, seconds 2;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000004; rev:2;)
+
+# SHUTDOWN storm — session termination flood
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-005 SCTP SHUTDOWN flood to AMF";
+    sctp_chunk_type:SHUTDOWN;
+    detection_filter: track by_src, count 20, seconds 2;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000005; rev:2;)
+
+# Verification tag = 0 on non-INIT chunk (SCTP spec violation)
+alert ip any any -> any 38412 (
+    msg:"SAND5G N2-006 SCTP vtag=0 on non-INIT — malformed / crafted packet";
+    ip_proto:132;
+    content:!"|01|"; offset:12; depth:1;
+    byte_test:4,=,0,4,big;
+    classtype:bad-unknown;
+    metadata: mitre_tactic "Evasion", mitre_technique_id "T1599";
+    sid:9000006; rev:2;)
+
+# Chunk length < 4 bytes — minimum valid chunk is 4 bytes (type+flags+len)
+alert ip any any -> any 38412 (
+    msg:"SAND5G N2-007 SCTP chunk length < 4 — fuzzing or malformed packet";
+    ip_proto:132;
+    byte_test:2,<,4,14,big;
+    classtype:bad-unknown;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000007; rev:2;)
+
+# SCTP INIT to AMF from unexpected source
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-008 SCTP INIT to AMF from unexpected source";
+    sctp_chunk_type:INIT;
+    classtype:attempted-recon;
+    metadata: mitre_tactic "Initial Access", mitre_technique_id "T1078";
+    sid:9000008; rev:1;)
+
+# High DATA chunk rate — NGAP message storm / fuzzing
+alert sctp any any -> any 38412 (
+    msg:"SAND5G N2-009 SCTP DATA storm to AMF — NGAP message flood";
+    sctp_chunk_type:DATA;
+    detection_filter: track by_src, count 500, seconds 1;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000009; rev:1;)
+
+# SCTP INIT on loopback from AMF itself (back-to-self — anomalous)
+alert sctp 127.0.0.0/8 any -> 127.0.0.0/8 38412 (
+    msg:"SAND5G N2-010 SCTP INIT on loopback — unexpected gNB source IP";
+    sctp_chunk_type:INIT;
+    detection_filter: track by_src, count 5, seconds 10;
+    classtype:attempted-recon;
+    metadata: mitre_tactic "Discovery", mitre_technique_id "T1046";
+    sid:9000010; rev:1;)

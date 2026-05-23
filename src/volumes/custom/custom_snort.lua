@@ -48,6 +48,9 @@ stream_tcp = { }
 stream_udp = { }
 stream_user = { }
 stream_file = { }
+-- Note: there is NO stream_sctp inspector in Snort3.
+-- SCTP (N2/NGAP) is processed packet-by-packet without reassembly.
+-- Do NOT use flow: keyword in SCTP rules.
 
 arp_spoof = { }
 back_orifice = { }
@@ -123,9 +126,15 @@ binder =
     -- port bindings required for protocols without wizard support
     { when = { proto = 'udp', ports = '53', role='server' },  use = { type = 'dns' } },
     { when = { proto = 'tcp', ports = '53', role='server' },  use = { type = 'dns' } },
+    { when = { proto = 'tcp', ports = '80', role = 'server' }, use = { type = 'http_inspect' } },
+    { when = { proto = 'tcp', ports = '80', role = 'client' }, use = { type = 'http_inspect' } },
+    -- Open5GS SBI: HTTP/2 on port 7777 (all NFs: AMF, SMF, NRF, UDM, AUSF, PCF, etc.)
+    { when = { proto = 'tcp', ports = '7777', role = 'server' }, use = { type = 'http2_inspect' } },
+    { when = { proto = 'tcp', ports = '7777', role = 'client' }, use = { type = 'http2_inspect' } },
     { when = { proto = 'tcp', ports = '111', role='server' }, use = { type = 'rpc_decode' } },
     { when = { proto = 'tcp', ports = '502', role='server' }, use = { type = 'modbus' } },
     { when = { proto = 'tcp', ports = '2123 2152 3386', role='server' }, use = { type = 'gtp_inspect' } },
+    -- N2: SCTP/38412 (NGAP) — binder.when.proto='sctp' is not supported by Snort3; SCTP packets are processed natively without a binder entry.
     { when = { proto = 'tcp', ports = '2404', role='server' }, use = { type = 'iec104' } },
     { when = { proto = 'udp', ports = '2222', role = 'server' }, use = { type = 'cip' } },
     { when = { proto = 'tcp', ports = '44818', role = 'server' }, use = { type = 'cip' } },

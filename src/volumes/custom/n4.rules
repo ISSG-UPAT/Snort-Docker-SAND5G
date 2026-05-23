@@ -1,0 +1,101 @@
+# SAND5G N4 rules — Snort 3
+#
+# Monitoring point: N4 interface (SMF ↔ UPF)
+#   Protocol: PFCP / UDP / port 8805  (3GPP TS 29.244)
+#
+# PFCP header (byte 0 = flags):
+#   bits 7-5: version = 001
+#   bit  4:   FO  (Follow On)     0=last, 1=more
+#   bit  3:   MP  (Multiplexing)  1=present
+#   bit  2:   S   (SEID)          1=session msg (16-byte SEID follows), 0=node msg
+#   bits 1-0: spare = 00
+#
+# Common flag+type patterns:
+#   |20 01| — Heartbeat Request      (node msg, S=0)
+#   |20 02| — Heartbeat Response     (node msg, S=0)
+#   |21 32| — Session Estab Request  (session msg, S=1, type=0x32/50d)
+#   |21 33| — Session Estab Response (session msg, S=1, type=0x33/51d)
+#   |21 34| — Session Mod Request    (session msg, S=1, type=0x34/52d)
+#   |21 38| — Session Delete Request (session msg, S=1, type=0x38/56d)
+#
+# No native PFCP decoder in Snort 3 → raw content matching on UDP/8805.
+
+
+# ── Section 1: Node-level message floods ────────────────────────────────────
+
+# Heartbeat Request flood — N4 keepalive abuse / state exhaustion
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-001 PFCP Heartbeat Request flood — N4 interface DoS";
+    content:"|20 01|"; depth:2;
+    detection_filter: track by_src, count 100, seconds 5;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9002001; rev:1;)
+
+# Heartbeat Response without prior Request — unsolicited / replay
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-002 PFCP unsolicited Heartbeat Response (possible replay)";
+    content:"|20 02|"; depth:2;
+    detection_filter: track by_src, count 20, seconds 10;
+    classtype:bad-unknown;
+    metadata: mitre_tactic "Evasion", mitre_technique_id "T1599";
+    sid:9002002; rev:1;)
+
+
+# ── Section 2: Session management floods ─────────────────────────────────────
+
+# Session Establishment Request flood — UPF resource exhaustion
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-003 PFCP Session Establishment Request flood";
+    content:"|21 32|"; depth:2;
+    detection_filter: track by_src, count 50, seconds 5;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9002003; rev:1;)
+
+# Session Delete Request flood — forced session teardown storm
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-004 PFCP Session Delete Request flood — session teardown storm";
+    content:"|21 38|"; depth:2;
+    detection_filter: track by_src, count 30, seconds 5;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9002004; rev:1;)
+
+# Session Modification Request flood
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-005 PFCP Session Modification Request flood";
+    content:"|21 34|"; depth:2;
+    detection_filter: track by_src, count 100, seconds 10;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9002005; rev:1;)
+
+
+# ── Section 3: Malformed / anomalous packets ─────────────────────────────────
+
+# PFCP packet too small (< 8 bytes — minimum node msg without SEID)
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-006 PFCP undersized packet (< 8 bytes) — malformed";
+    dsize:<8;
+    classtype:protocol-command-decode;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9002006; rev:1;)
+
+# PFCP version bits != 001 (bits 7-5 of byte 0 should be 0x20 masked)
+# byte 0 & 0xE0 != 0x20 → unexpected version
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-007 PFCP unexpected version (not v1) — malformed or crafted";
+    byte_test:1,!&,0x20,0;
+    classtype:protocol-command-decode;
+    metadata: mitre_tactic "Evasion", mitre_technique_id "T1599";
+    sid:9002007; rev:1;)
+
+# PFCP from unexpected source to UPF port (any host other than known SMF)
+alert udp any any -> any 8805 (
+    msg:"SAND5G N4-008 PFCP traffic from unexpected source to N4 port";
+    content:"|20|"; depth:1;
+    detection_filter: track by_src, count 3, seconds 60;
+    classtype:attempted-recon;
+    metadata: mitre_tactic "Discovery", mitre_technique_id "T1046";
+    sid:9002008; rev:1;)
