@@ -86,9 +86,9 @@ setup_rules() {
     n3)
         # ogstun FORWARD chain (inner IP after GTP-U decapsulation)
         add_rule_once filter FORWARD "-j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
-        # Outer GTP-U packets on physical N3 interface
-        add_rule_once filter INPUT  "-i $N3_IF -p udp --dport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
-        add_rule_once filter OUTPUT "-o $N3_IF -p udp --sport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        # Outer GTP-U packets (no interface restriction — ClusterIP DNAT may route via any interface)
+        add_rule_once filter INPUT  "-p udp --dport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        add_rule_once filter OUTPUT "-p udp --sport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         ;;
     n4)
         _iface_chains "$N4_IF"
@@ -136,8 +136,8 @@ cleanup_rules() {
         ;;
     n3)
         del_rule_all filter FORWARD "-j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
-        del_rule_all filter INPUT  "-i $N3_IF -p udp --dport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
-        del_rule_all filter OUTPUT "-o $N3_IF -p udp --sport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        del_rule_all filter INPUT  "-p udp --dport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        del_rule_all filter OUTPUT "-p udp --sport $N3_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         ;;
     n4)
         _iface_chains "$N4_IF"
