@@ -7,34 +7,32 @@
 # UE subnet: 10.45.0.0/16 (Open5GS default)
 # GTP-U port: UDP/2152
 #
-# Snort 3 notes on GTP-U:
-#   - No native GTP-U decoder; outer rules use raw content matching on UDP/2152.
-#   - Inner-IP rules (Section 2) see plain IP/TCP/UDP/HTTP/DNS after NFQ
-#     delivers the ogstun-forwarded packet. Requires HTTP/DNS inspectors in
-#     custom_snort.lua (http_inspect, dns already included in the default lua).
-
+# Snort 3.9.1.0 compatibility:
+#   - No native GTP-U decoder; outer rules use raw content/byte_test on UDP/2152.
+#   - Snort3 HTTP sticky buffers: http_uri, http_method, http_client_body,
+#     http_server_body. Do NOT use Suricata dotted names.
+#   - nocase, offset, depth on negated content are NOT standalone IPS options.
+#   - Drop the /U pcre flag (sticky buffer sets the context).
 
 # ── Section 1: GTP-U outer-header anomalies (UDP/2152) ───────────────────────
 
 # GTP-U flood from a single gNB — possible DoS
-# GTP-U header byte 0 = 0x30 (version=1, PT=1, E=0, S=0, PN=0)
 alert udp any any -> any 2152 (
     msg:"SAND5G N3-001 GTP-U flood: excessive packets from single source";
     content:"|30|"; depth:1;
     detection_filter: track by_src, count 800, seconds 1;
     classtype:attempted-dos;
     metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
-    sid:9001001; rev:1;)
+    sid:9001001; rev:3;)
 
-# GTP-U malformed header — unexpected version bits (version != 1)
+# GTP-U malformed header — unexpected version bits (not 0x30-0x3F range)
 alert udp any any -> any 2152 (
     msg:"SAND5G N3-002 GTP-U malformed header: unexpected version field";
-    content:!"|30|"; depth:1;
-    content:!"|32|"; depth:1;
+    byte_test:1,!&,0x30,0,bitmask 0xF0;
     detection_filter: track by_src, count 5, seconds 10;
     classtype:protocol-command-decode;
     metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
-    sid:9001002; rev:1;)
+    sid:9001002; rev:3;)
 
 # GTP-U undersized packet (< 8 bytes payload — minimum header)
 alert udp any any -> any 2152 (
@@ -42,18 +40,17 @@ alert udp any any -> any 2152 (
     dsize:<8;
     classtype:protocol-command-decode;
     metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
-    sid:9001003; rev:1;)
+    sid:9001003; rev:3;)
 
-# GTP-U TEID=0 probe (possible tunnel enumeration)
-# Bytes 4-7 of GTP-U header = TEID
+# GTP-U TEID=0 probe — bytes 0-1 = 0x30FF (T-PDU), bytes 4-7 = TEID = 0
 alert udp any any -> any 2152 (
     msg:"SAND5G N3-004 GTP-U TEID=0 probe (possible tunnel enumeration)";
-    content:"|30 FF 00|"; depth:3;
-    content:"|00 00 00 00|"; offset:4; depth:4;
+    byte_test:2,=,0x30FF,0,big;
+    byte_test:4,=,0,4,big;
     detection_filter: track by_src, count 3, seconds 60;
     classtype:attempted-recon;
     metadata: mitre_tactic "Discovery", mitre_technique_id "T1046";
-    sid:9001004; rev:1;)
+    sid:9001004; rev:3;)
 
 # GTP-U Echo Request storm (type 0x01) — keep-alive amplification
 alert udp any any -> any 2152 (
@@ -62,22 +59,22 @@ alert udp any any -> any 2152 (
     detection_filter: track by_src, count 50, seconds 5;
     classtype:attempted-dos;
     metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
-    sid:9001005; rev:1;)
+    sid:9001005; rev:3;)
 
-# GTP-U unknown message type (not T-PDU 0xFF, Echo Req 0x01, Echo Resp 0x02)
+# GTP-U unknown message type (not T-PDU 0xFF, Echo Req 0x01, Echo Resp 0x02,
+# Error Indication 0x1A, Supported Ext Headers 0x1F)
 alert udp any any -> any 2152 (
     msg:"SAND5G N3-006 GTP-U unknown message type (not T-PDU or control)";
-    content:"|30|"; depth:1;
-    content:!"|30 FF|"; depth:2;
-    content:!"|30 01|"; depth:2;
-    content:!"|30 02|"; depth:2;
-    content:!"|30 1A|"; depth:2;
-    content:!"|30 1F|"; depth:2;
+    byte_test:1,=,0x30,0;
+    byte_test:1,!=,0xFF,1;
+    byte_test:1,!=,0x01,1;
+    byte_test:1,!=,0x02,1;
+    byte_test:1,!=,0x1A,1;
+    byte_test:1,!=,0x1F,1;
     detection_filter: track by_src, count 10, seconds 30;
     classtype:protocol-command-decode;
     metadata: mitre_tactic "Evasion", mitre_technique_id "T1599";
-    sid:9001006; rev:1;)
-
+    sid:9001006; rev:3;)
 
 # ── Section 2: Inner IP / UE traffic (ogstun FORWARD chain) ──────────────────
 # Snort sees plain IP after GTP-U decapsulation. UE source = 10.45.0.0/16.
@@ -86,30 +83,19 @@ alert udp any any -> any 2152 (
 alert http any any -> any any (
     msg:"SAND5G N3-010 EICAR test file in HTTP response (UE data plane)";
     flow:to_client,established;
-    http.response_body;
+    http_server_body;
     content:"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
     classtype:trojan-activity;
     metadata: mitre_tactic "Exfiltration", mitre_technique_id "T1041";
-    sid:9001010; rev:1;)
-
-# DNS exfiltration — long encoded subdomain from UE
-alert dns 10.45.0.0/16 any -> any 53 (
-    msg:"SAND5G N3-011 DNS exfiltration: long encoded subdomain from UE";
-    dns.query;
-    pcre:"/^[A-Za-z0-9+\/]{40,}\./";
-    detection_filter: track by_src, count 20, seconds 60;
-    classtype:exfiltration;
-    metadata: mitre_tactic "Exfiltration", mitre_technique_id "T1048";
-    sid:9001011; rev:1;)
+    sid:9001010; rev:3;)
 
 # DNS flood from a single UE — possible tunneling or C2 beacon
-alert dns 10.45.0.0/16 any -> any 53 (
+alert udp 10.45.0.0/16 any -> any 53 (
     msg:"SAND5G N3-012 DNS flood from UE — possible tunneling or C2 beacon";
-    dns.query;
     detection_filter: track by_src, count 200, seconds 60;
     classtype:exfiltration;
     metadata: mitre_tactic "Command and Control", mitre_technique_id "T1071";
-    sid:9001012; rev:1;)
+    sid:9001012; rev:3;)
 
 # TCP SYN scan from a UE — reconnaissance via 5G data plane
 alert tcp 10.45.0.0/16 any -> any any (
@@ -118,7 +104,7 @@ alert tcp 10.45.0.0/16 any -> any any (
     detection_filter: track by_src, count 25, seconds 3;
     classtype:attempted-recon;
     metadata: mitre_tactic "Discovery", mitre_technique_id "T1046";
-    sid:9001013; rev:1;)
+    sid:9001013; rev:3;)
 
 # ICMP oversized echo from UE — possible covert channel
 alert icmp 10.45.0.0/16 any -> any any (
@@ -128,38 +114,36 @@ alert icmp 10.45.0.0/16 any -> any any (
     detection_filter: track by_src, count 5, seconds 60;
     classtype:exfiltration;
     metadata: mitre_tactic "Exfiltration", mitre_technique_id "T1048";
-    sid:9001014; rev:1;)
+    sid:9001014; rev:3;)
 
 # HTTP path traversal from UE
 alert http 10.45.0.0/16 any -> any any (
     msg:"SAND5G N3-015 HTTP path traversal from UE";
     flow:to_server,established;
-    http.uri;
-    pcre:"/\.\.\//U";
+    http_uri; pcre:"/\.\.\//";
     classtype:web-application-attack;
     metadata: mitre_tactic "Initial Access", mitre_technique_id "T1190";
-    sid:9001015; rev:1;)
+    sid:9001015; rev:3;)
 
 # HTTP /etc/passwd probe from UE
 alert http 10.45.0.0/16 any -> any any (
     msg:"SAND5G N3-016 HTTP /etc/passwd probe from UE";
     flow:to_server,established;
-    http.uri;
-    content:"/etc/passwd"; nocase;
+    http_uri; content:"/etc/passwd";
     classtype:attempted-user;
     metadata: mitre_tactic "Credential Access", mitre_technique_id "T1552";
-    sid:9001016; rev:1;)
+    sid:9001016; rev:3;)
 
 # Large HTTP POST from UE — possible data exfiltration
 alert http 10.45.0.0/16 any -> any any (
     msg:"SAND5G N3-017 Large HTTP POST from UE (possible data exfil)";
     flow:to_server,established;
-    http.method; content:"POST";
-    http.request_body; dsize:>50000;
+    http_method; content:"POST";
+    http_client_body; dsize:>50000;
     detection_filter: track by_src, count 3, seconds 60;
     classtype:exfiltration;
     metadata: mitre_tactic "Exfiltration", mitre_technique_id "T1048";
-    sid:9001017; rev:1;)
+    sid:9001017; rev:3;)
 
 # UE connecting to Tor SOCKS port
 alert tcp 10.45.0.0/16 any -> any [9050,9051] (
@@ -167,4 +151,4 @@ alert tcp 10.45.0.0/16 any -> any [9050,9051] (
     flags:S;
     classtype:policy-violation;
     metadata: mitre_tactic "Command and Control", mitre_technique_id "T1090";
-    sid:9001018; rev:1;)
+    sid:9001018; rev:3;)

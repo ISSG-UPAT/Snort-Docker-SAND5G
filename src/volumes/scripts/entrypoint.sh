@@ -10,6 +10,7 @@
 #   n3     — GTP-U/UDP port 2152   (gNB ↔ UPF) + ogstun FORWARD chain
 #   n4     — PFCP/UDP  port 8805   (SMF ↔ UPF)
 #   sbi    — HTTP-2/TCP port 7777  (Open5GS inter-NF SBI)
+#   n6     — all user-plane traffic on ogstun FORWARD (UPF ↔ Data Network)
 #   custom — arbitrary rule strings via RULE_IN / RULE_OUT
 #   (empty)— same as custom
 #
@@ -37,6 +38,7 @@ N4_IF="${N4_IF:-lo}"
 N4_PORT="${N4_PORT:-8805}"
 SBI_IF="${SBI_IF:-lo}"
 SBI_PORT="${SBI_PORT:-7777}"
+N6_IF="${N6_IF:-ogstun}"
 
 # ── iptables helpers ──────────────────────────────────────────────────────────
 
@@ -100,6 +102,11 @@ setup_rules() {
         add_rule_once filter "$CHAIN_IN"  "-i $SBI_IF -p tcp --dport $SBI_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         add_rule_once filter "$CHAIN_OUT" "-o $SBI_IF -p tcp --sport $SBI_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         ;;
+    n6)
+        # N6: UPF ↔ Data Network — decapsulated user-plane traffic on ogstun
+        add_rule_once filter FORWARD "-i $N6_IF -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        add_rule_once filter FORWARD "-o $N6_IF -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        ;;
     ""|custom)
         # Custom rule strings — set RULE_IN / RULE_OUT to arbitrary iptables args.
         # CHAIN_IN / CHAIN_OUT default to INPUT / OUTPUT.
@@ -148,6 +155,10 @@ cleanup_rules() {
         _iface_chains "$SBI_IF"
         del_rule_all filter "$CHAIN_IN"  "-i $SBI_IF -p tcp --dport $SBI_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         del_rule_all filter "$CHAIN_OUT" "-o $SBI_IF -p tcp --sport $SBI_PORT -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        ;;
+    n6)
+        del_rule_all filter FORWARD "-i $N6_IF -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
+        del_rule_all filter FORWARD "-o $N6_IF -j NFQUEUE --queue-num $IDS_QUEUE --queue-bypass"
         ;;
     ""|custom)
         CHAIN_IN="${CHAIN_IN:-INPUT}"

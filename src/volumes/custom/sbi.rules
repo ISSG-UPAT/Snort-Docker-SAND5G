@@ -1,0 +1,119 @@
+# SAND5G SBI rules — Snort 3
+#
+# Monitoring point: Service-Based Interface (inter-NF HTTP/2)
+#   Protocol: HTTP/2 / TCP / port 7777  (Open5GS default)
+#
+# Snort 3.9.1.0 compatibility:
+#   - Snort3 HTTP sticky buffers: http_uri, http_method, http_header.
+#     Do NOT use Suricata dotted names (http.uri, http.method, http.header_names).
+#   - nocase and offset/depth are NOT valid standalone IPS options in this build.
+#     URI/method patterns are exact-case: Open5GS URIs are lowercase, HTTP
+#     methods are uppercase — no case folding needed.
+#   - Drop the /U pcre flag (sticky buffer already scopes the match to the URI).
+
+# ── Section 1: Endpoint scanning / probing ───────────────────────────────────
+
+# NRF endpoint scan — high-rate probing of NF management URIs
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-001 NRF endpoint probing (/nnrf-nfm/)";
+    flow:to_server,established;
+    http_uri; content:"/nnrf-nfm/";
+    detection_filter: track by_src, count 15, seconds 30;
+    classtype:web-application-attack;
+    metadata: mitre_tactic "Discovery", mitre_technique_id "T1046";
+    sid:9000020; rev:3;)
+
+# Unauthorized NF registration — PUT to NRF at elevated rate
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-002 NF registration flood: PUT /nnrf-nfm/v1/nf-instances";
+    flow:to_server,established;
+    http_method; content:"PUT";
+    http_uri; content:"/nnrf-nfm/v1/nf-instances/";
+    detection_filter: track by_src, count 10, seconds 60;
+    classtype:web-application-attack;
+    metadata: mitre_tactic "Initial Access", mitre_technique_id "T1078";
+    sid:9000021; rev:3;)
+
+# AMF auth endpoint flood — possible auth bypass probe
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-003 AMF auth flood: POST /namf-auth burst";
+    flow:to_server,established;
+    http_method; content:"POST";
+    http_uri; content:"/namf-auth/";
+    detection_filter: track by_src, count 20, seconds 60;
+    classtype:web-application-attack;
+    metadata: mitre_tactic "Credential Access", mitre_technique_id "T1110";
+    sid:9000022; rev:3;)
+
+# SMF session establishment flood
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-004 SMF session flood: POST /nsmf-pdusession burst";
+    flow:to_server,established;
+    http_method; content:"POST";
+    http_uri; content:"/nsmf-pdusession/";
+    detection_filter: track by_src, count 30, seconds 10;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000023; rev:3;)
+
+# DELETE flood — NF deregistration attack
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-005 DELETE flood — NF deregistration attack";
+    flow:to_server,established;
+    http_method; content:"DELETE";
+    http_uri; content:"/nnrf-nfm/v1/nf-instances/";
+    detection_filter: track by_src, count 5, seconds 10;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000024; rev:3;)
+
+# Path traversal attempt via SBI
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-006 HTTP path traversal via SBI (..\/)";
+    flow:to_server,established;
+    http_uri; pcre:"/\.\.\//";
+    classtype:web-application-attack;
+    metadata: mitre_tactic "Initial Access", mitre_technique_id "T1190";
+    sid:9000025; rev:3;)
+
+# POST without Content-Type header — crafted / fuzzing request
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-007 SBI POST missing Content-Type — possible fuzzing";
+    flow:to_server,established;
+    http_method; content:"POST";
+    http_header; content:!"content-type";
+    detection_filter: track by_src, count 5, seconds 30;
+    classtype:web-application-attack;
+    metadata: mitre_tactic "Evasion", mitre_technique_id "T1027";
+    sid:9000026; rev:3;)
+
+# TCP SYN flood to SBI port
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-008 TCP SYN flood to SBI port 7777";
+    flags:S;
+    detection_filter: track by_src, count 50, seconds 5;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000027; rev:3;)
+
+# UDM subscriber data read flood — possible IMSI harvesting
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-009 UDM subscriber data read flood — IMSI harvesting probe";
+    flow:to_server,established;
+    http_method; content:"GET";
+    http_uri; content:"/nudm-sdm/";
+    detection_filter: track by_src, count 30, seconds 10;
+    classtype:attempted-recon;
+    metadata: mitre_tactic "Discovery", mitre_technique_id "T1087";
+    sid:9000028; rev:3;)
+
+# PCF policy delete flood — service disruption via policy teardown
+alert tcp any any -> any 7777 (
+    msg:"SAND5G SBI-010 PCF policy DELETE flood — service disruption";
+    flow:to_server,established;
+    http_method; content:"DELETE";
+    http_uri; content:"/npcf-smpolicycontrol/";
+    detection_filter: track by_src, count 10, seconds 10;
+    classtype:attempted-dos;
+    metadata: mitre_tactic "Impact", mitre_technique_id "T1499";
+    sid:9000029; rev:3;)
